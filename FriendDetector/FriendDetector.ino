@@ -1,5 +1,6 @@
 /* 
 Friend Detector by Ricardo Oliveira, forked by Skickar 9/30/2018
+Forked again by pe5er 17/11/2018 (dd mm yyyy because uk)
 
 A Node MCU microcontroller + mini bread board + 4 pin RGB LED to detect when devices belonging to a target are nearby.
 
@@ -16,31 +17,40 @@ the LED will show purple. */
 /*  Define you friend's list size here
  How many MAC addresses are you tracking?
  */
-#define LIST_SIZE 2
+#define LIST_SIZE 5
 /*
  * This is your friend's MAC address list
  Format it by taking the mac address aa:bb:cc:dd:ee:ff 
  and converting it to 0xaa,0xbb,0xcc,0xdd,0xee,0xff
  */
 uint8_t friendmac[LIST_SIZE][ESPPL_MAC_LEN] = {
-   {0x12, 0x34, 0x56, 0x78, 0x90, 0x12}
-  ,{0x34, 0x56, 0x78, 0x90, 0x12, 0x34}
+   {0x40, 0x88, 0x05, 0x51, 0x4d, 0xe6}
+  ,{0x28, 0xed, 0x6a, 0x4f, 0xd3, 0xcc}
+  ,{0xd0, 0x04, 0x01, 0x42, 0x30, 0xfa}
+  ,{0x04, 0xd6, 0xaa, 0x32, 0x7e, 0x2d}
+  ,{0x00, 0x34, 0xda, 0x85, 0xec, 0xe6}  
   };
 /*
+ * 0xec, 0x9b, 0xf3, 0x82, 0x5e, 0xdf
  * This is your friend's name list
  * put them in the same order as the MAC addresses
  */
 String friendname[LIST_SIZE] = {
-   "Target 1"
-  ,"Target 2"
+   "PeterPhone"
+  ,"BrittanyPhone"
+  ,"JacobPhone"
+  ,"JoePhone"
+  ,"StuartPhone"
   };
 
 // start variables package - Skickar 2018 hardware LED for NodeMCU on mini breadboard //
 void setup() { 
   delay(500);
-  pinMode(D5, OUTPUT); // sets the pins to output mode
+  pinMode(D4, OUTPUT); // sets the pins to output mode
+  pinMode(D5, OUTPUT);
   pinMode(D6, OUTPUT);
   pinMode(D7, OUTPUT);
+  pinMode(D8, OUTPUT);
   Serial.begin(115200);
   esppl_init(cb);
 }
@@ -52,14 +62,19 @@ process and it dies */
 int cooldown = 0; /* This variable will be a cooldown timer to keep the LED on for longer, we'll set it to 1000 if we
 detect a packet from a device with a MAC address on the list, and then keep the LED on till we get 1000 packets that 
 are NOT from any device on the list. */
-void red() {
-digitalWrite(D5, HIGH); }  // Turn ON the red LED
-void blue() {
-digitalWrite(D7, HIGH); } // Turn ON the blue LED
-void green() {
-digitalWrite(D6, HIGH); } // Turn ON the green LED
+void pin4() {
+digitalWrite(D4, HIGH); }  // Turn ON the LED
+void pin5() {
+digitalWrite(D5, HIGH); }  // Turn ON the LED
+void pin6() {
+digitalWrite(D5, HIGH); }  // Turn ON the LED
+void pin7() {
+digitalWrite(D7, HIGH); } // Turn ON the LED
+void pin8() {
+digitalWrite(D8, HIGH); } // Turn ON the LED
+
 void turnoff() {
-    digitalWrite(D7, LOW), digitalWrite(D5, LOW), digitalWrite(D6, LOW); 
+    digitalWrite(D4, LOW), digitalWrite(D5, LOW), digitalWrite(D6, LOW), digitalWrite(D7, LOW), digitalWrite(D8, LOW); 
 }
 
 /* end exparimental variable package */
@@ -77,11 +92,19 @@ void cb(esppl_frame_info *info) {
   for (int i=0; i<LIST_SIZE; i++) {
     if (maccmp(info->sourceaddr, friendmac[i]) || maccmp(info->receiveraddr, friendmac[i])) {
       Serial.printf("\n%s is here! :)", friendname[i].c_str());
-      cooldown = 1000; // here we set it to 1000 if we detect a packet that matches our list
-      if (i == 1){
-        blue();} // Here we turn on the blue LED until turnoff() is called
-        else {
-          red();} // Here we turn on the RED LED until turnoff is called. We can also use if i == 0, or another index
+      cooldown = 10000; // here we set it to 1000 if we detect a packet that matches our list
+      if (i == 0){
+          pin4();
+      } else if (i == 1){
+          pin5();
+      } else if (i == 2){
+          pin6();
+      } else if (i == 3){
+          pin7();
+      } else if (i == 4){
+          pin8();
+      }
+
     }
 
       else { // this is for if the packet does not match any we are tracking
