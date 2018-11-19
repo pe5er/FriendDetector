@@ -1,28 +1,14 @@
 /* 
 Friend Detector by Ricardo Oliveira, forked by Skickar 9/30/2018
 Forked again by pe5er 17/11/2018 (dd mm yyyy because uk)
-
-A Node MCU microcontroller + mini bread board + 4 pin RGB LED to detect when devices belonging to a target are nearby.
-
-
-The function of this code is to read nearby Wi-Fi traffic in the form of packets. These packets are compared
-to a list of MAC addresses we wish to track, and if the MAC address of a packet matches one on the list, we turn 
-on a colored LED that is linked to the user owning the device. For example, when my roommate comes home, the 
-transmissions from his phone will be detected and cause the blue LED to turn on until his phone is no longer detected. 
-It can detect more than one phone at a time, meaning if my phone (red) and my roommate's phone (blue) are both home, 
-the LED will show purple. */
+*/
 
 #include "./esppl_functions.h"
+#include <LiquidCrystal_I2C.h>
+#include <Wire.h>
 
-/*  Define you friend's list size here
- How many MAC addresses are you tracking?
- */
 #define LIST_SIZE 5
-/*
- * This is your friend's MAC address list
- Format it by taking the mac address aa:bb:cc:dd:ee:ff 
- and converting it to 0xaa,0xbb,0xcc,0xdd,0xee,0xff
- */
+
 uint8_t friendmac[LIST_SIZE][ESPPL_MAC_LEN] = {
    {0x40, 0x88, 0x05, 0x51, 0x4d, 0xe6}
   ,{0x28, 0xed, 0x6a, 0x4f, 0xd3, 0xcc}
@@ -30,11 +16,7 @@ uint8_t friendmac[LIST_SIZE][ESPPL_MAC_LEN] = {
   ,{0x04, 0xd6, 0xaa, 0x32, 0x7e, 0x2d}
   ,{0x00, 0x34, 0xda, 0x85, 0xec, 0xe6}  
   };
-/*
- * 0xec, 0x9b, 0xf3, 0x82, 0x5e, 0xdf
- * This is your friend's name list
- * put them in the same order as the MAC addresses
- */
+
 String friendname[LIST_SIZE] = {
    "PeterPhone"
   ,"BrittanyPhone"
@@ -43,7 +25,23 @@ String friendname[LIST_SIZE] = {
   ,"StuartPhone"
   };
 
-// start variables package - Skickar 2018 hardware LED for NodeMCU on mini breadboard //
+LiquidCrystal_I2C lcd(0x27, 16, 4);
+
+int peterhome = 0;
+int brittanyhome = 0;
+int jacobhome = 0;
+int joehome = 0;
+int stuarthome = 0;
+
+int petercountdown = 0;
+int brittanycountdown = 0;
+int jacobcountdown = 0;
+int joecountdown = 0;
+int stuartcountdown = 0;
+
+int displayupdate = 0;
+int peoplecounter = 0;
+
 void setup() { 
   delay(500);
   pinMode(D4, OUTPUT); // sets the pins to output mode
@@ -53,31 +51,53 @@ void setup() {
   pinMode(D8, OUTPUT);
   Serial.begin(115200);
   esppl_init(cb);
+
+  Wire.begin(D2, D1);
+  lcd.clear();
+  lcd.begin();
+  lcd.home();
+  lcd.print(" Who's at Home?");
 }
 
-/* You cannot use a time delay here to keep the LED on, so will need to use ratio of 
-detected packets to overall packets to keep LED on for longer. If you try to use a 
-delay to keep the light on for long enough to be useful, the watchdog timer kills the 
-process and it dies */
-int cooldown = 0; /* This variable will be a cooldown timer to keep the LED on for longer, we'll set it to 1000 if we
-detect a packet from a device with a MAC address on the list, and then keep the LED on till we get 1000 packets that 
-are NOT from any device on the list. */
 void pin4() {
-digitalWrite(D4, HIGH); }  // Turn ON the LED
+digitalWrite(D4, HIGH); 
+peterhome = 1;
+}
 void pin5() {
-digitalWrite(D5, HIGH); }  // Turn ON the LED
+digitalWrite(D5, HIGH); 
+brittanyhome = 1;
+}
 void pin6() {
-digitalWrite(D5, HIGH); }  // Turn ON the LED
+digitalWrite(D6, HIGH); 
+jacobhome = 1;
+}
 void pin7() {
-digitalWrite(D7, HIGH); } // Turn ON the LED
+digitalWrite(D7, HIGH); 
+joehome = 1;
+}
 void pin8() {
-digitalWrite(D8, HIGH); } // Turn ON the LED
-
-void turnoff() {
-    digitalWrite(D4, LOW), digitalWrite(D5, LOW), digitalWrite(D6, LOW), digitalWrite(D7, LOW), digitalWrite(D8, LOW); 
+digitalWrite(D8, HIGH); 
+stuarthome = 1;
 }
 
-/* end exparimental variable package */
+void updatelcd() {
+
+  lcd.setCursor(0,2);
+  peoplecounter = 0;
+  if (peterhome == 1){ peoplecounter++; }
+  if (brittanyhome == 1){ peoplecounter++; }
+  if (jacobhome == 1){ peoplecounter++; }
+  if (joehome == 1){ peoplecounter++; }
+  if (stuarthome == 1){ peoplecounter++; }
+
+  if (peoplecounter == 0){ lcd.print("No-one"); 
+  } else if (peoplecounter == 5) { lcd.print("Everyone"); 
+  } else if (peoplecounter == 1) { lcd.print("1 person"); 
+  } else { 
+  lcd.print(peoplecounter);
+  lcd.print(" people");
+  }
+}
 
 bool maccmp(uint8_t *mac1, uint8_t *mac2) {
   for (int i=0; i < ESPPL_MAC_LEN; i++) {
@@ -88,31 +108,82 @@ bool maccmp(uint8_t *mac1, uint8_t *mac2) {
   return true;
 }
 
-void cb(esppl_frame_info *info) {
+void cb(esppl_frame_info *info) {  
   for (int i=0; i<LIST_SIZE; i++) {
     if (maccmp(info->sourceaddr, friendmac[i]) || maccmp(info->receiveraddr, friendmac[i])) {
-      Serial.printf("\n%s is here! :)", friendname[i].c_str());
-      cooldown = 10000; // here we set it to 1000 if we detect a packet that matches our list
-      if (i == 0){
+
+        if (displayupdate > 0) {          
+        displayupdate--; 
+        } else { 
+        updatelcd(); 
+        displayupdate = 200;
+        }
+      
+      Serial.printf("\n%s", friendname[i].c_str());
+      if (i == 0){        //peter
           pin4();
-      } else if (i == 1){
+          petercountdown = 10000;
+      } else if (i == 1){ //brittany
           pin5();
-      } else if (i == 2){
+          brittanycountdown = 10000;
+      } else if (i == 2){ //jacob
           pin6();
-      } else if (i == 3){
+          jacobcountdown = 10000;
+      } else if (i == 3){ //joe
           pin7();
-      } else if (i == 4){
+          joecountdown = 10000;
+      } else if (i == 4){ //stuart
           pin8();
+          stuartcountdown = 2000;
       }
 
-    }
+    } else { // this is for if the packet does not match any we are tracking
 
-      else { // this is for if the packet does not match any we are tracking
-        if (cooldown > 0) {
-          cooldown--; } //subtract one from the cooldown timer if the value of "cooldown" is more than one
-          else { // If the timer is at zero, then run the turnoff function to turn off any LED's that are on.
-        
-        turnoff(); } } } }
+        if (displayupdate > 0) {          
+        displayupdate--; 
+        } else { 
+        updatelcd(); 
+        displayupdate = 200;
+        }
+
+      if (petercountdown > 0) {          
+        petercountdown--; 
+      } else { 
+        digitalWrite(D4, LOW); 
+        peterhome = 0;
+      }
+
+      if (brittanycountdown > 0) {          
+        brittanycountdown--; 
+      } else { 
+        digitalWrite(D5, LOW); 
+        brittanyhome = 0;
+      }
+
+      if (jacobcountdown > 0) {          
+        jacobcountdown--; 
+      } else {
+        digitalWrite(D6, LOW); 
+        jacobhome = 0;
+      }
+
+      if (joecountdown > 0) {          
+        joecountdown--; 
+      } else { 
+        digitalWrite(D7, LOW); 
+        joehome = 0;
+      }
+
+      if (stuartcountdown > 0) {          
+        stuartcountdown--; 
+      } else { 
+        digitalWrite(D8, LOW); 
+        stuarthome = 0;
+      }
+
+    } //if
+  } //for  
+} //void
 
 
 void loop() { // I didn't write this part but it sure looks fancy.
